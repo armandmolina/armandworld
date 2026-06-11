@@ -682,6 +682,17 @@
       flex-shrink: 0; transition: transform 0.18s var(--ease-out);
     }
     .form-submit:hover .icon-wrap { transform: translate(2px,-2px); }
+    .form-submit:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
+    .form-success {
+      display: flex; flex-direction: column; align-items: flex-start;
+      gap: 0.5rem; padding: 2rem;
+      background: var(--green-bg, #f0fdf4); border: 1.5px solid var(--green-border, #bbf7d0);
+      border-radius: var(--r-lg); color: var(--text-1);
+    }
+    .form-success-icon { font-size: 1.5rem; color: #059669; }
+    .form-success h3 { font-size: 1rem; font-weight: 700; margin: 0; }
+    .form-success p { font-size: 0.875rem; color: var(--text-2); margin: 0; }
+    .form-error { font-size: 0.8rem; color: #dc2626; margin-top: 0.25rem; }
     @media (max-width: 860px) {
       .contact-grid { grid-template-columns: 1fr; gap: 3rem; }
       .form-row { grid-template-columns: 1fr; }
@@ -1576,15 +1587,43 @@
   overlay.querySelectorAll('a').forEach(a => a.addEventListener('click', closeNav));
 
   const form = document.getElementById('contact-form');
-  form && form.addEventListener('submit', e => {
+  form && form.addEventListener('submit', async e => {
     e.preventDefault();
     const name    = form.querySelector('#name').value.trim();
     const email   = form.querySelector('#email').value.trim();
     const company = form.querySelector('#company').value.trim();
     const message = form.querySelector('#message').value.trim();
     if (!name || !email || !message) return;
-    const body = `Name: ${name}\nEmail: ${email}${company ? '\nCompany: ' + company : ''}\n\n${message}`;
-    window.location.href = `mailto:info@armandmt.com?subject=Project enquiry from ${encodeURIComponent(name)}&body=${encodeURIComponent(body)}`;
+
+    const btn = form.querySelector('.form-submit');
+    btn.disabled = true;
+    const originalText = btn.querySelector('span').textContent;
+    btn.querySelector('span').textContent = '...';
+
+    try {
+      const res = await fetch('https://formspree.io/f/xeewllvn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ name, email, company, message })
+      });
+      if (res.ok) {
+        form.innerHTML = `<div class="form-success">
+          <span class="form-success-icon"><i class="fa-solid fa-circle-check"></i></span>
+          <h3 data-i18n="form.success.title">Message sent!</h3>
+          <p data-i18n="form.success.body">Thanks for reaching out — I'll get back to you within 24 hours.</p>
+        </div>`;
+      } else {
+        btn.disabled = false;
+        btn.querySelector('span').textContent = originalText;
+        const err = form.querySelector('.form-error') || (() => { const el = document.createElement('p'); el.className = 'form-error'; form.appendChild(el); return el; })();
+        err.textContent = 'Something went wrong. Please try again or email info@armandmt.com directly.';
+      }
+    } catch {
+      btn.disabled = false;
+      btn.querySelector('span').textContent = originalText;
+      const err = form.querySelector('.form-error') || (() => { const el = document.createElement('p'); el.className = 'form-error'; form.appendChild(el); return el; })();
+      err.textContent = 'Network error. Please try again or email info@armandmt.com directly.';
+    }
   });
 
   /* ── LANG SWITCHER ────────────────────────────────────── */
