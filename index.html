@@ -658,6 +658,10 @@
       font-size: 0.875rem; color: var(--text-1); width: 100%;
       transition: border-color 0.18s, box-shadow 0.18s;
     }
+    .form-field.has-error input, .form-field.has-error textarea {
+      border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.12);
+    }
+    .field-error { font-size: 0.75rem; color: #dc2626; margin-top: 0.1rem; }
     .form-field input::placeholder, .form-field textarea::placeholder { color: var(--text-3); }
     .form-field input:focus, .form-field textarea:focus {
       outline: none; border-color: var(--blue);
@@ -1589,40 +1593,73 @@
   const form = document.getElementById('contact-form');
   form && form.addEventListener('submit', async e => {
     e.preventDefault();
-    const name    = form.querySelector('#name').value.trim();
-    const email   = form.querySelector('#email').value.trim();
-    const company = form.querySelector('#company').value.trim();
-    const message = form.querySelector('#message').value.trim();
-    if (!name || !email || !message) return;
+
+    const fields = {
+      name:    form.querySelector('#name'),
+      email:   form.querySelector('#email'),
+      message: form.querySelector('#message'),
+    };
+
+    // Clear previous errors
+    form.querySelectorAll('.form-field').forEach(f => {
+      f.classList.remove('has-error');
+      const fe = f.querySelector('.field-error');
+      if (fe) fe.remove();
+    });
+
+    // Validate required fields
+    let valid = true;
+    Object.entries(fields).forEach(([, el]) => {
+      if (!el.value.trim()) {
+        valid = false;
+        const wrap = el.closest('.form-field');
+        wrap.classList.add('has-error');
+        const msg = document.createElement('span');
+        msg.className = 'field-error';
+        msg.textContent = 'This field is required.';
+        wrap.appendChild(msg);
+      }
+    });
+    if (!valid) return;
 
     const btn = form.querySelector('.form-submit');
+    const btnLabel = btn.querySelector('span[data-i18n]');
     btn.disabled = true;
-    const originalText = btn.querySelector('span').textContent;
-    btn.querySelector('span').textContent = '...';
+    btnLabel.textContent = '...';
+
+    const company = form.querySelector('#company').value.trim();
 
     try {
       const res = await fetch('https://formspree.io/f/xeewllvn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ name, email, company, message })
+        body: JSON.stringify({
+          name:     fields.name.value.trim(),
+          email:    fields.email.value.trim(),
+          _replyto: fields.email.value.trim(),
+          company,
+          message:  fields.message.value.trim(),
+        })
       });
       if (res.ok) {
         form.innerHTML = `<div class="form-success">
           <span class="form-success-icon"><i class="fa-solid fa-circle-check"></i></span>
-          <h3 data-i18n="form.success.title">Message sent!</h3>
-          <p data-i18n="form.success.body">Thanks for reaching out — I'll get back to you within 24 hours.</p>
+          <h3>Message sent!</h3>
+          <p>Thanks for reaching out — I'll get back to you within 24 hours.</p>
         </div>`;
       } else {
         btn.disabled = false;
-        btn.querySelector('span').textContent = originalText;
-        const err = form.querySelector('.form-error') || (() => { const el = document.createElement('p'); el.className = 'form-error'; form.appendChild(el); return el; })();
-        err.textContent = 'Something went wrong. Please try again or email info@armandmt.com directly.';
+        btnLabel.textContent = 'Send message';
+        let globalErr = form.querySelector('.form-error');
+        if (!globalErr) { globalErr = document.createElement('p'); globalErr.className = 'form-error'; form.appendChild(globalErr); }
+        globalErr.textContent = 'Something went wrong. Please try again or email info@armandmt.com directly.';
       }
     } catch {
       btn.disabled = false;
-      btn.querySelector('span').textContent = originalText;
-      const err = form.querySelector('.form-error') || (() => { const el = document.createElement('p'); el.className = 'form-error'; form.appendChild(el); return el; })();
-      err.textContent = 'Network error. Please try again or email info@armandmt.com directly.';
+      btnLabel.textContent = 'Send message';
+      let globalErr = form.querySelector('.form-error');
+      if (!globalErr) { globalErr = document.createElement('p'); globalErr.className = 'form-error'; form.appendChild(globalErr); }
+      globalErr.textContent = 'Network error. Please try again or email info@armandmt.com directly.';
     }
   });
 
